@@ -1,3 +1,6 @@
 .idea/
 .vs/
+
 Build/
+Bin/
+BinDebug/
