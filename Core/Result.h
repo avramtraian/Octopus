@@ -24,6 +24,7 @@ public:
         IdExpired,
         IdNotScannable,
         EntryAlreadyExists,
+        EntryIsNotUnique,
         IntegerOverflow,
         InvalidParameter,
         InvalidEntryField,

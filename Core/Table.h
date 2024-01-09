@@ -89,19 +89,34 @@ public:
     ResultOr<void> insert_entry_with_ticket_id(GeneratedTicketID generated_ticket_id, TableEntry entry);
     ResultOr<TicketID> insert_entry(TableEntry entry);
 
+    ResultOr<void> remove_ticket(TicketID ticket_id);
+
     ResultOr<usize> entry_count() const;
     ResultOr<TableEntry&> get_entry(TicketID ticket_id);
     ResultOr<const TableEntry&> get_entry(TicketID ticket_id) const;
+    ResultOr<Vector<TicketID>> find_ticket_id_by_name(StringView first_name, StringView last_name) const;
 
     template<typename Func>
     ALWAYS_INLINE ResultOr<void> iterate_over_entries(Func callback)
     {
         for (auto& [ticket_id, entry] : m_entries)
         {
-            if (entry.is_corrupted())
-                return Result(Result::CorruptedTable);
+            TRY(entry.check_corrupted(Result::CorruptedTable));
+            TRY_ASSIGN(const IterationDecision decision, callback(ticket_id, entry));
+            if (decision == IterationDecision::Break)
+                break;
+        }
 
-            TRY_ASSIGN(IterationDecision decision, callback(ticket_id, entry));
+        return {};
+    }
+
+    template<typename Func>
+    ALWAYS_INLINE ResultOr<void> iterate_over_entries(Func callback) const
+    {
+        for (const auto& [ticket_id, entry] : m_entries)
+        {
+            TRY(entry.check_corrupted(Result::CorruptedTable));
+            TRY_ASSIGN(const IterationDecision decision, callback(ticket_id, entry));
             if (decision == IterationDecision::Break)
                 break;
         }

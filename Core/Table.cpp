@@ -228,6 +228,17 @@ ResultOr<TicketID> Table::insert_entry(TableEntry entry)
     return generated_ticket_id.id;
 }
 
+ResultOr<void> Table::remove_ticket(TicketID ticket_id)
+{
+    auto entry_it = m_entries.find(ticket_id);
+    if (entry_it == m_entries.end())
+        return Result(Result::IdNotFound);
+
+    TRY(entry_it->second.check_corrupted());
+    m_entries.erase(entry_it);
+    return {};
+}
+
 ResultOr<usize> Table::entry_count() const
 {
     return m_entries.size();
@@ -251,6 +262,22 @@ ResultOr<const TableEntry&> Table::get_entry(TicketID ticket_id) const
 
     TRY(entry_it->second.check_corrupted());
     return entry_it->second;
+}
+
+ResultOr<Vector<TicketID>> Table::find_ticket_id_by_name(StringView first_name, StringView last_name) const
+{
+    Vector<TicketID> ticket_ids;
+
+    TRY(iterate_over_entries(
+        [&](TicketID ticket_id, const auto& entry) -> ResultOr<IterationDecision>
+        {
+            if (entry.first_name == first_name && entry.last_name == last_name)
+                ticket_ids.push_back(ticket_id);
+            return IterationDecision::Continue;
+        }
+    ));
+
+    return ticket_ids;
 }
 
 static ResultOr<void> format_name_string(String& name)
