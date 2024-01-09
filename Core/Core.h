@@ -11,6 +11,7 @@
 #include <iostream>
 #include <map>
 #include <new>
+#include <optional>
 #include <set>
 #include <span>
 #include <sstream>
@@ -71,6 +72,8 @@ template<typename T>
 using OwnPtr = std::unique_ptr<T>;
 template<typename T>
 using HashSet = std::unordered_set<T>;
+template<typename T>
+using Optional = std::optional<T>;
 template<typename T>
 using RefPtr = std::shared_ptr<T>;
 template<typename T>
