@@ -74,6 +74,48 @@ SUBCOMMAND_CALLBACK(subcommand_emit)
     return IterationDecision::Continue;
 }
 
+SUBCOMMAND_CALLBACK(subcommand_remove)
+{
+    auto& table = context.program_context->table();
+    if (!table)
+        return Result(Result::UnknownError);
+
+    const String& ticket_id_as_string = context.arguments_string[0];
+    TRY_ASSIGN(const TicketID ticket_id, transform_from_base_36<u64>(ticket_id_as_string));
+
+    auto result_or_entry = table->get_entry(ticket_id);
+    if (result_or_entry.is_result())
+    {
+        if (result_or_entry.release_result().get_code() == Result::Code::IdNotFound)
+        {
+            Print::line("Ticket ID '{}' is not valid.", ticket_id_as_string);
+            return IterationDecision::Continue;
+        }
+        return result_or_entry.release_result();
+    }
+
+    const TableEntry removed_entry = result_or_entry.release_value();
+
+    auto result_or_void = table->remove_ticket(ticket_id);
+    if (result_or_void.is_result())
+    {
+        if (result_or_void.release_result().get_code() == Result::Code::IdNotFound)
+        {
+            Print::line("Ticket ID '{}' is not valid.", ticket_id_as_string);
+            return IterationDecision::Continue;
+        }
+        return result_or_void.release_result();
+    }
+
+    Print::line("The following entry was removed:");
+    Print::LocalIndent local_indent;
+    Print::line("First name: {}", removed_entry.first_name);
+    Print::line("Last name:  {}", removed_entry.last_name);
+    Print::line("Grade:      {}{}", removed_entry.grade, removed_entry.grade_id);
+
+    return IterationDecision::Continue;
+}
+
 SUBCOMMAND_CALLBACK(subcommand_scan)
 {
     const String& ticket_id_string = context.arguments_string[0];
@@ -179,7 +221,7 @@ SUBCOMMAND_CALLBACK(subcommand_print)
             const u32 ticket_count = number_of_tickets_per_class[grade][grade_id];
             if (ticket_count == 0)
                 continue;
-            
+
             const String padding = (grade < 10) ? " " : String();
             Print::line("{}{}:{} {}", static_cast<u32>(grade), grade_id, padding, ticket_count);
         }
@@ -199,7 +241,7 @@ SUBCOMMAND_CALLBACK(subcommand_print)
 static PrimaryCommandRegister s_open_database_command(
     "open_database", { "db" },
     { { CommandSyntax::Type::String, "database_filepath" } },
-    { "save", "emit", "scan", "print" },
+    { "save", "emit", "remove", "scan", "print" },
     primary_command_open_database,
     "Opens a database from a file."
 );
@@ -207,7 +249,7 @@ static PrimaryCommandRegister s_open_database_command(
 static PrimaryCommandRegister s_create_database_command(
     "create_database", { "db" },
     {},
-    { "save", "emit", "scan", "print" },
+    { "save", "emit", "remove", "scan", "print" },
     primary_command_create_database,
     "Creates a new empty memory-only database."
 );
@@ -229,6 +271,15 @@ static SubcommandRegister s_emit_subcommand(
     },
     subcommand_emit,
     "Emits a new ticket, by generating a new ticket ID."
+);
+
+static SubcommandRegister s_remove_subcommand(
+    "remove", { "remove", "rem" },
+    {
+        { CommandSyntax::Type::String, "ticket_id" },
+    },
+    subcommand_remove,
+    "Removes a ticket ID from the database."
 );
 
 static SubcommandRegister s_scan_subcommand(
