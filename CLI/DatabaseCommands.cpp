@@ -118,9 +118,13 @@ SUBCOMMAND_CALLBACK(subcommand_remove)
 
 SUBCOMMAND_CALLBACK(subcommand_scan)
 {
+    auto& table = context.program_context->table();
+    if (!table)
+        return Result(Result::UnknownError);
+
     const String& ticket_id_string = context.arguments_string[0];
     TRY_ASSIGN(const TicketID ticket_id, transform_from_base_36<u64>(ticket_id_string));
-    auto result_or_entry = context.program_context->table()->get_entry(ticket_id);
+    auto result_or_entry = table->get_entry(ticket_id);
 
     if (result_or_entry.is_result())
     {
@@ -154,13 +158,62 @@ SUBCOMMAND_CALLBACK(subcommand_scan)
         Print::pop_indentation();
     }
 
-    TRY(context.program_context->table()->increment_ticket_scan_count(ticket_id));
+    TRY(table->increment_ticket_scan_count(ticket_id));
+
+    // TODO: The database should be saved to disk, in case the program will crash later.
+    //       This will ensure that all tickets scanned until that moment were correctly registered.
+
+    return IterationDecision::Continue;
+}
+
+SUBCOMMAND_CALLBACK(subcommand_change)
+{
+    const auto& table = context.program_context->table();
+    if (!table)
+        return Result(Result::UnknownError);
+
+    const String& ticket_id_as_string = context.arguments_string[0];
+    TRY_ASSIGN(const TicketID ticket_id, transform_from_base_36<u64>(ticket_id_as_string));
+    TRY_ASSIGN(TableEntry & entry, table->get_entry(ticket_id));
+
+    const String& new_first_name = context.arguments_string[2];
+    const String& new_last_name = context.arguments_string[1];
+    const i64 new_grade = context.arguments_integer[0];
+    const String& new_grade_id = context.arguments_string[3];
+
+    if (new_grade < 0)
+        return Result(Result::InvalidParameter);
+    if (new_grade_id.size() != 1)
+        return Result(Result::InvalidParameter);
+
+    TableEntry new_entry;
+    new_entry.first_name = new_first_name;
+    new_entry.last_name = new_last_name;
+    TRY_ASSIGN(new_entry.grade, safe_truncate_unsigned<u8>(static_cast<u64>(new_grade)));
+    new_entry.grade_id = new_grade_id[0];
+    TRY(Table::format_entry(new_entry));
+
+    if (entry.first_name != new_entry.first_name)
+        Print::line("First name: {} -> {}", entry.first_name, new_entry.first_name);
+
+    if (entry.last_name != new_entry.last_name)
+        Print::line("Last name:  {} -> {}", entry.last_name, new_entry.last_name);
+
+    if (entry.grade != new_entry.grade)
+        Print::line("Grade:      {} -> {}", static_cast<u32>(entry.grade), static_cast<u32>(entry.grade));
+
+    if (entry.grade_id != new_entry.grade_id)
+        Print::line("Grade ID:   {} -> {}", entry.grade_id, new_entry.grade_id);
+
+    entry = new_entry;
     return IterationDecision::Continue;
 }
 
 SUBCOMMAND_CALLBACK(subcommand_print)
 {
     const auto& table = context.program_context->table();
+    if (!table)
+        return Result(Result::UnknownError);
 
     HashMap<u8, HashMap<char, u32>> number_of_tickets_per_class;
 
@@ -241,7 +294,7 @@ SUBCOMMAND_CALLBACK(subcommand_print)
 static PrimaryCommandRegister s_open_database_command(
     "open_database", { "db" },
     { { CommandSyntax::Type::String, "database_filepath" } },
-    { "save", "emit", "remove", "scan", "print" },
+    { "save", "emit", "remove", "change", "scan", "print" },
     primary_command_open_database,
     "Opens a database from a file."
 );
@@ -249,7 +302,7 @@ static PrimaryCommandRegister s_open_database_command(
 static PrimaryCommandRegister s_create_database_command(
     "create_database", { "db" },
     {},
-    { "save", "emit", "remove", "scan", "print" },
+    { "save", "emit", "remove", "change", "scan", "print" },
     primary_command_create_database,
     "Creates a new empty memory-only database."
 );
@@ -289,6 +342,19 @@ static SubcommandRegister s_scan_subcommand(
     },
     subcommand_scan,
     "Scans a ticket ID."
+);
+
+static SubcommandRegister s_change_subcommand(
+    "change", { "change" },
+    {
+        { CommandSyntax::Type::String, "ticket_id" },
+        { CommandSyntax::Type::String, "last_name" },
+        { CommandSyntax::Type::String, "first_name" },
+        { CommandSyntax::Type::Integer, "grade" },
+        { CommandSyntax::Type::String, "grade_id" }
+    },
+    subcommand_change,
+    "Changes the details of the entry associated with the given ticket id."
 );
 
 static SubcommandRegister s_print_subcommand(
