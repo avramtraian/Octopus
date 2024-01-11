@@ -80,6 +80,8 @@ public:
     static ResultOr<OwnPtr<Table>> create_from_file(const String& filepath);
     ResultOr<void> save_to_file(const String& filepath) const;
 
+    static ResultOr<void> format_entry(TableEntry& entry);
+
 public:
     ResultOr<bool> is_ticket_id_valid(TicketID ticket_id) const;
     ResultOr<bool> has_generated_ticket_id_expired(GeneratedTicketID generated_ticket_id) const;
@@ -127,7 +129,6 @@ public:
     ResultOr<void> increment_ticket_scan_count(TicketID ticket_id);
 
 private:
-    static ResultOr<void> format_entry(TableEntry& entry);
     ResultOr<bool> similar_entry_already_exists(const TableEntry& entry) const;
 
 private:

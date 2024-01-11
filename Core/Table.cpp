@@ -151,6 +151,64 @@ ResultOr<void> Table::save_to_file(const String& filepath) const
     return {};
 }
 
+static ResultOr<void> format_name_string(String& name)
+{
+    for (usize index = 0; index < name.size(); ++index)
+        name[index] = static_cast<char>(std::tolower(name[index]));
+
+    bool character_must_be_uppercase = true;
+    char last_character = '-';
+
+    String formatted_name = String();
+    for (usize index = 0; index < name.size(); ++index)
+    {
+        auto character = name[index];
+        if (character != '-' && !std::isalpha(character))
+            return Result(Result::InvalidString);
+
+        if (std::isalpha(character))
+        {
+            if (character_must_be_uppercase)
+            {
+                character = static_cast<char>(std::toupper(character));
+                character_must_be_uppercase = false;
+            }
+        }
+        else
+        {
+            character_must_be_uppercase = true;
+            if (last_character == '-')
+                continue;
+        }
+
+        last_character = character;
+        formatted_name.push_back(character);
+    }
+
+    if (last_character == ' ')
+        formatted_name.pop_back();
+
+    name = formatted_name;
+    return {};
+}
+
+ResultOr<void> Table::format_entry(TableEntry& entry)
+{
+    TRY(entry.check_corrupted());
+
+    if (entry.grade < ALLOWED_GRADE_LOW || entry.grade > ALLOWED_GRADE_HIGH)
+        return Result(Result::InvalidEntryField);
+
+    entry.grade_id = static_cast<char>(std::toupper(entry.grade_id));
+    if (entry.grade_id < ALLOWED_GRADE_ID_LOW || entry.grade_id > ALLOWED_GRADE_ID_HIGH)
+        return Result(Result::InvalidEntryField);
+
+    TRY(format_name_string(entry.first_name));
+    TRY(format_name_string(entry.last_name));
+
+    return {};
+}
+
 ResultOr<bool> Table::is_ticket_id_valid(TicketID ticket_id) const
 {
     auto entry_it = m_entries.find(ticket_id);
@@ -278,64 +336,6 @@ ResultOr<Vector<TicketID>> Table::find_ticket_id_by_name(StringView first_name, 
     ));
 
     return ticket_ids;
-}
-
-static ResultOr<void> format_name_string(String& name)
-{
-    for (usize index = 0; index < name.size(); ++index)
-        name[index] = static_cast<char>(std::tolower(name[index]));
-
-    bool character_must_be_uppercase = true;
-    char last_character = '-';
-
-    String formatted_name = String();
-    for (usize index = 0; index < name.size(); ++index)
-    {
-        auto character = name[index];
-        if (character != '-' && !std::isalpha(character))
-            return Result(Result::InvalidString);
-
-        if (std::isalpha(character))
-        {
-            if (character_must_be_uppercase)
-            {
-                character = static_cast<char>(std::toupper(character));
-                character_must_be_uppercase = false;
-            }
-        }
-        else
-        {
-            character_must_be_uppercase = true;
-            if (last_character == '-')
-                continue;
-        }
-
-        last_character = character;
-        formatted_name.push_back(character);
-    }
-
-    if (last_character == ' ')
-        formatted_name.pop_back();
-
-    name = formatted_name;
-    return {};
-}
-
-ResultOr<void> Table::format_entry(TableEntry& entry)
-{
-    TRY(entry.check_corrupted());
-
-    if (entry.grade < ALLOWED_GRADE_LOW || entry.grade > ALLOWED_GRADE_HIGH)
-        return Result(Result::InvalidEntryField);
-
-    entry.grade_id = static_cast<char>(std::toupper(entry.grade_id));
-    if (entry.grade_id < ALLOWED_GRADE_ID_LOW || entry.grade_id > ALLOWED_GRADE_ID_HIGH)
-        return Result(Result::InvalidEntryField);
-
-    TRY(format_name_string(entry.first_name));
-    TRY(format_name_string(entry.last_name));
-
-    return {};
 }
 
 ResultOr<bool> Table::similar_entry_already_exists(const TableEntry& entry) const
