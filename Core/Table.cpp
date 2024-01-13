@@ -163,7 +163,7 @@ static ResultOr<void> format_name_string(String& name)
     for (usize index = 0; index < name.size(); ++index)
     {
         auto character = name[index];
-        if (character != '-' && !std::isalpha(character))
+        if (character != '-' && character != ' ' && !std::isalpha(character))
             return Result(Result::InvalidString);
 
         if (std::isalpha(character))
@@ -172,6 +172,10 @@ static ResultOr<void> format_name_string(String& name)
             {
                 character = static_cast<char>(std::toupper(character));
                 character_must_be_uppercase = false;
+            }
+            else
+            {
+                character = static_cast<char>(std::tolower(character));
             }
         }
         else
@@ -185,7 +189,7 @@ static ResultOr<void> format_name_string(String& name)
         formatted_name.push_back(character);
     }
 
-    if (last_character == ' ')
+    if (last_character == '-' || last_character == ' ')
         formatted_name.pop_back();
 
     name = formatted_name;
