@@ -221,24 +221,15 @@ SUBCOMMAND_CALLBACK(subcommand_print)
     {
         for (char grade_id = 'A'; grade_id <= 'F'; ++grade_id)
         {
-            struct ClassTicket
-            {
-                String first_name;
-                String last_name;
-                TicketID ticket_id;
-            };
-            Vector<ClassTicket> tickets_in_class;
+            std::map<String, TicketID> tickets_in_class;
 
             TRY(table->iterate_over_entries(
                 [&](TicketID ticket_id, const TableEntry& entry) -> ResultOr<IterationDecision>
                 {
                     if (entry.grade == grade && entry.grade_id == grade_id)
                     {
-                        ClassTicket class_ticket;
-                        class_ticket.first_name = entry.first_name;
-                        class_ticket.last_name = entry.last_name;
-                        class_ticket.ticket_id = ticket_id;
-                        tickets_in_class.emplace_back(std::move(class_ticket));
+                        const String full_name = entry.last_name + " " + entry.first_name;
+                        tickets_in_class[full_name] = ticket_id;
                     }
 
                     return IterationDecision::Continue;
@@ -253,10 +244,10 @@ SUBCOMMAND_CALLBACK(subcommand_print)
             Print::line("Class {}{} ({} tickets):", static_cast<u32>(grade), grade_id, tickets_in_class.size());
             Print::LocalIndent local_indent;
 
-            for (const auto& class_ticket : tickets_in_class)
+            for (const auto& [full_name, ticket_id] : tickets_in_class)
             {
-                const auto ticket_id_string = transform_to_base_36(class_ticket.ticket_id);
-                Print::line("{}: {} {}", ticket_id_string, class_ticket.last_name, class_ticket.first_name);
+                const auto ticket_id_string = transform_to_base_36(ticket_id);
+                Print::line("{}: {}", ticket_id_string, full_name);
             }
 
             Print::new_line();

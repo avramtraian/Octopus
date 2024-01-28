@@ -35,7 +35,7 @@ template<typename T>
 ALWAYS_INLINE ResultOr<T> get_yaml_node(YAML::Node& node, StringView field_name)
 {
     auto field_node = node[field_name];
-    if (!field_node)
+    if (!field_node || field_node.IsNull())
         return Result(Result::InvalidYAML);
     return field_node.as<T>();
 }
@@ -189,7 +189,7 @@ static ResultOr<void> format_name_string(String& name)
         formatted_name.push_back(character);
     }
 
-    if (last_character == '-' || last_character == ' ')
+    if ((last_character == '-' || last_character == ' ') && !formatted_name.empty())
         formatted_name.pop_back();
 
     name = formatted_name;
